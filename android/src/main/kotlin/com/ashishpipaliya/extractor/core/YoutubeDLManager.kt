@@ -45,14 +45,14 @@ class YoutubeDLManager(
         updateService.updateYoutubeDL(channel, callback)
     }
 
-    override fun getVideoInfo(url: String, callback: (Result<VideoInfo>) -> Unit) {
+    override fun getVideoInfo(url: String, callback: (Result<List<VideoInfo>>) -> Unit) {
         infoService.getVideoInfo(url, callback)
     }
 
     override fun getVideoInfoWithOptions(
         url: String,
         options: Map<String?, String?>,
-        callback: (Result<VideoInfo>) -> Unit
+        callback: (Result<List<VideoInfo>>) -> Unit
     ) {
         infoService.getVideoInfoWithOptions(url, options, callback)
     }

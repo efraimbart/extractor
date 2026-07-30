@@ -69,18 +69,22 @@ class YoutubeDLFlutter {
     return await _api.updateYoutubeDL(channel);
   }
 
-  /// Get video information without downloading
+  /// Get video information without downloading.
   ///
-  /// [url] - Video URL
-  Future<VideoInfo> getVideoInfo(String url) async {
+  /// Returns one entry for a single video, or multiple for playlists/carousels.
+  ///
+  /// [url] - Video / post URL
+  Future<List<VideoInfo>> getVideoInfo(String url) async {
     return await _api.getVideoInfo(url);
   }
 
-  /// Get video information with custom options
+  /// Get video information with custom options.
+  ///
+  /// Returns one entry for a single video, or multiple for playlists/carousels.
   ///
   /// [url] - Video URL
   /// [options] - Custom youtube-dl options (e.g., {'--format': 'best'})
-  Future<VideoInfo> getVideoInfoWithOptions(
+  Future<List<VideoInfo>> getVideoInfoWithOptions(
     String url,
     Map<String, String> options,
   ) async {

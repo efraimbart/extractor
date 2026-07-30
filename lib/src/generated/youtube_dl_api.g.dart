@@ -15,8 +15,7 @@ PlatformException _createConnectionError(String channelName) {
   );
 }
 
-List<Object?> wrapResponse(
-    {Object? result, PlatformException? error, bool empty = false}) {
+List<Object?> wrapResponse({Object? result, PlatformException? error, bool empty = false}) {
   if (empty) {
     return <Object?>[];
   }
@@ -42,22 +41,16 @@ enum OperationStatus {
 enum DownloadTemplate {
   /// Best quality video with audio
   bestQuality,
-
   /// Audio only (best quality)
   audioOnly,
-
   /// Video only (no audio)
   videoOnly,
-
   /// 1080p video with audio
   video1080p,
-
   /// 720p video with audio
   video720p,
-
   /// 480p video with audio
   video480p,
-
   /// Best video under 100MB
   smallSize,
 }
@@ -66,13 +59,10 @@ enum DownloadTemplate {
 enum FormatSortOrder {
   /// Sort by quality (highest first)
   quality,
-
   /// Sort by file size (smallest first)
   filesize,
-
   /// Sort by bitrate (highest first)
   bitrate,
-
   /// Sort by codec preference
   codec,
 }
@@ -205,6 +195,7 @@ class VideoFormat {
 
   String? resolution;
 
+  /// yt-dlp `http_headers` (User-Agent, Referer, Cookie, …) for CDN requests.
   Map<String?, String?>? httpHeaders;
 
   Object encode() {
@@ -240,9 +231,7 @@ class VideoFormat {
       vcodec: result[9] as String?,
       acodec: result[10] as String?,
       resolution: result[11] as String?,
-      httpHeaders: (result[12] as Map<Object?, Object?>?)?.map(
-        (k, v) => MapEntry(k as String?, v as String?),
-      ),
+      httpHeaders: (result[12] as Map<Object?, Object?>?)?.cast<String?, String?>(),
     );
   }
 }
@@ -313,6 +302,7 @@ class VideoInfo {
 
   String? acodec;
 
+  /// Top-level yt-dlp `http_headers` when formats omit them.
   Map<String?, String?>? httpHeaders;
 
   Object encode() {
@@ -364,9 +354,7 @@ class VideoInfo {
       fps: result[17] as int?,
       vcodec: result[18] as String?,
       acodec: result[19] as String?,
-      httpHeaders: (result[20] as Map<Object?, Object?>?)?.map(
-        (k, v) => MapEntry(k as String?, v as String?),
-      ),
+      httpHeaders: (result[20] as Map<Object?, Object?>?)?.cast<String?, String?>(),
     );
   }
 }
@@ -462,8 +450,7 @@ class DownloadRequest {
       subtitlesLang: result[11] as String?,
       writeSubtitles: result[12] as bool?,
       writeAutoSubtitles: result[13] as bool?,
-      customOptions:
-          (result[14] as Map<Object?, Object?>?)?.cast<String?, String?>(),
+      customOptions: (result[14] as Map<Object?, Object?>?)?.cast<String?, String?>(),
       processId: result[15] as String?,
     );
   }
@@ -533,6 +520,7 @@ class VersionInfo {
   }
 }
 
+
 class _PigeonCodec extends StandardMessageCodec {
   const _PigeonCodec();
   @override
@@ -540,40 +528,40 @@ class _PigeonCodec extends StandardMessageCodec {
     if (value is int) {
       buffer.putUint8(4);
       buffer.putInt64(value);
-    } else if (value is UpdateChannel) {
+    }    else if (value is UpdateChannel) {
       buffer.putUint8(129);
       writeValue(buffer, value.index);
-    } else if (value is OperationStatus) {
+    }    else if (value is OperationStatus) {
       buffer.putUint8(130);
       writeValue(buffer, value.index);
-    } else if (value is DownloadTemplate) {
+    }    else if (value is DownloadTemplate) {
       buffer.putUint8(131);
       writeValue(buffer, value.index);
-    } else if (value is FormatSortOrder) {
+    }    else if (value is FormatSortOrder) {
       buffer.putUint8(132);
       writeValue(buffer, value.index);
-    } else if (value is InitConfig) {
+    }    else if (value is InitConfig) {
       buffer.putUint8(133);
       writeValue(buffer, value.encode());
-    } else if (value is InitResult) {
+    }    else if (value is InitResult) {
       buffer.putUint8(134);
       writeValue(buffer, value.encode());
-    } else if (value is UpdateResult) {
+    }    else if (value is UpdateResult) {
       buffer.putUint8(135);
       writeValue(buffer, value.encode());
-    } else if (value is VideoFormat) {
+    }    else if (value is VideoFormat) {
       buffer.putUint8(136);
       writeValue(buffer, value.encode());
-    } else if (value is VideoInfo) {
+    }    else if (value is VideoInfo) {
       buffer.putUint8(137);
       writeValue(buffer, value.encode());
-    } else if (value is DownloadRequest) {
+    }    else if (value is DownloadRequest) {
       buffer.putUint8(138);
       writeValue(buffer, value.encode());
-    } else if (value is DownloadResult) {
+    }    else if (value is DownloadResult) {
       buffer.putUint8(139);
       writeValue(buffer, value.encode());
-    } else if (value is VersionInfo) {
+    }    else if (value is VersionInfo) {
       buffer.putUint8(140);
       writeValue(buffer, value.encode());
     } else {
@@ -584,33 +572,33 @@ class _PigeonCodec extends StandardMessageCodec {
   @override
   Object? readValueOfType(int type, ReadBuffer buffer) {
     switch (type) {
-      case 129:
+      case 129: 
         final int? value = readValue(buffer) as int?;
         return value == null ? null : UpdateChannel.values[value];
-      case 130:
+      case 130: 
         final int? value = readValue(buffer) as int?;
         return value == null ? null : OperationStatus.values[value];
-      case 131:
+      case 131: 
         final int? value = readValue(buffer) as int?;
         return value == null ? null : DownloadTemplate.values[value];
-      case 132:
+      case 132: 
         final int? value = readValue(buffer) as int?;
         return value == null ? null : FormatSortOrder.values[value];
-      case 133:
+      case 133: 
         return InitConfig.decode(readValue(buffer)!);
-      case 134:
+      case 134: 
         return InitResult.decode(readValue(buffer)!);
-      case 135:
+      case 135: 
         return UpdateResult.decode(readValue(buffer)!);
-      case 136:
+      case 136: 
         return VideoFormat.decode(readValue(buffer)!);
-      case 137:
+      case 137: 
         return VideoInfo.decode(readValue(buffer)!);
-      case 138:
+      case 138: 
         return DownloadRequest.decode(readValue(buffer)!);
-      case 139:
+      case 139: 
         return DownloadResult.decode(readValue(buffer)!);
-      case 140:
+      case 140: 
         return VersionInfo.decode(readValue(buffer)!);
       default:
         return super.readValueOfType(type, buffer);
@@ -623,11 +611,9 @@ class YoutubeDLApi {
   /// Constructor for [YoutubeDLApi].  The [binaryMessenger] named argument is
   /// available for dependency injection.  If it is left null, the default
   /// BinaryMessenger will be used which routes to the host platform.
-  YoutubeDLApi(
-      {BinaryMessenger? binaryMessenger, String messageChannelSuffix = ''})
+  YoutubeDLApi({BinaryMessenger? binaryMessenger, String messageChannelSuffix = ''})
       : pigeonVar_binaryMessenger = binaryMessenger,
-        pigeonVar_messageChannelSuffix =
-            messageChannelSuffix.isNotEmpty ? '.$messageChannelSuffix' : '';
+        pigeonVar_messageChannelSuffix = messageChannelSuffix.isNotEmpty ? '.$messageChannelSuffix' : '';
   final BinaryMessenger? pigeonVar_binaryMessenger;
 
   static const MessageCodec<Object?> pigeonChannelCodec = _PigeonCodec();
@@ -636,10 +622,8 @@ class YoutubeDLApi {
 
   /// Initialize the library with configuration
   Future<InitResult> initialize(InitConfig config) async {
-    final String pigeonVar_channelName =
-        'dev.flutter.pigeon.extractor.YoutubeDLApi.initialize$pigeonVar_messageChannelSuffix';
-    final BasicMessageChannel<Object?> pigeonVar_channel =
-        BasicMessageChannel<Object?>(
+    final String pigeonVar_channelName = 'dev.flutter.pigeon.extractor.YoutubeDLApi.initialize$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
@@ -666,10 +650,8 @@ class YoutubeDLApi {
 
   /// Get version information
   Future<VersionInfo> getVersion() async {
-    final String pigeonVar_channelName =
-        'dev.flutter.pigeon.extractor.YoutubeDLApi.getVersion$pigeonVar_messageChannelSuffix';
-    final BasicMessageChannel<Object?> pigeonVar_channel =
-        BasicMessageChannel<Object?>(
+    final String pigeonVar_channelName = 'dev.flutter.pigeon.extractor.YoutubeDLApi.getVersion$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
@@ -696,10 +678,8 @@ class YoutubeDLApi {
 
   /// Update youtube-dl binary
   Future<UpdateResult> updateYoutubeDL(UpdateChannel channel) async {
-    final String pigeonVar_channelName =
-        'dev.flutter.pigeon.extractor.YoutubeDLApi.updateYoutubeDL$pigeonVar_messageChannelSuffix';
-    final BasicMessageChannel<Object?> pigeonVar_channel =
-        BasicMessageChannel<Object?>(
+    final String pigeonVar_channelName = 'dev.flutter.pigeon.extractor.YoutubeDLApi.updateYoutubeDL$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
@@ -724,12 +704,11 @@ class YoutubeDLApi {
     }
   }
 
-  /// Get video information without downloading
-  Future<VideoInfo> getVideoInfo(String url) async {
-    final String pigeonVar_channelName =
-        'dev.flutter.pigeon.extractor.YoutubeDLApi.getVideoInfo$pigeonVar_messageChannelSuffix';
-    final BasicMessageChannel<Object?> pigeonVar_channel =
-        BasicMessageChannel<Object?>(
+  /// Get video information without downloading.
+  /// Returns one entry for a single video, or multiple for playlists/carousels.
+  Future<List<VideoInfo>> getVideoInfo(String url) async {
+    final String pigeonVar_channelName = 'dev.flutter.pigeon.extractor.YoutubeDLApi.getVideoInfo$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
@@ -750,17 +729,15 @@ class YoutubeDLApi {
         message: 'Host platform returned null value for non-null return value.',
       );
     } else {
-      return (pigeonVar_replyList[0] as VideoInfo?)!;
+      return (pigeonVar_replyList[0] as List<Object?>?)!.cast<VideoInfo>();
     }
   }
 
-  /// Get video information with custom options
-  Future<VideoInfo> getVideoInfoWithOptions(
-      String url, Map<String?, String?> options) async {
-    final String pigeonVar_channelName =
-        'dev.flutter.pigeon.extractor.YoutubeDLApi.getVideoInfoWithOptions$pigeonVar_messageChannelSuffix';
-    final BasicMessageChannel<Object?> pigeonVar_channel =
-        BasicMessageChannel<Object?>(
+  /// Get video information with custom options.
+  /// Returns one entry for a single video, or multiple for playlists/carousels.
+  Future<List<VideoInfo>> getVideoInfoWithOptions(String url, Map<String?, String?> options) async {
+    final String pigeonVar_channelName = 'dev.flutter.pigeon.extractor.YoutubeDLApi.getVideoInfoWithOptions$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
@@ -781,16 +758,14 @@ class YoutubeDLApi {
         message: 'Host platform returned null value for non-null return value.',
       );
     } else {
-      return (pigeonVar_replyList[0] as VideoInfo?)!;
+      return (pigeonVar_replyList[0] as List<Object?>?)!.cast<VideoInfo>();
     }
   }
 
   /// Download video
   Future<DownloadResult> download(DownloadRequest request) async {
-    final String pigeonVar_channelName =
-        'dev.flutter.pigeon.extractor.YoutubeDLApi.download$pigeonVar_messageChannelSuffix';
-    final BasicMessageChannel<Object?> pigeonVar_channel =
-        BasicMessageChannel<Object?>(
+    final String pigeonVar_channelName = 'dev.flutter.pigeon.extractor.YoutubeDLApi.download$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
@@ -817,10 +792,8 @@ class YoutubeDLApi {
 
   /// Cancel a download by process ID
   Future<bool> cancelDownload(String processId) async {
-    final String pigeonVar_channelName =
-        'dev.flutter.pigeon.extractor.YoutubeDLApi.cancelDownload$pigeonVar_messageChannelSuffix';
-    final BasicMessageChannel<Object?> pigeonVar_channel =
-        BasicMessageChannel<Object?>(
+    final String pigeonVar_channelName = 'dev.flutter.pigeon.extractor.YoutubeDLApi.cancelDownload$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
@@ -847,10 +820,8 @@ class YoutubeDLApi {
 
   /// Check if library is initialized (synchronous)
   Future<bool> isInitialized() async {
-    final String pigeonVar_channelName =
-        'dev.flutter.pigeon.extractor.YoutubeDLApi.isInitialized$pigeonVar_messageChannelSuffix';
-    final BasicMessageChannel<Object?> pigeonVar_channel =
-        BasicMessageChannel<Object?>(
+    final String pigeonVar_channelName = 'dev.flutter.pigeon.extractor.YoutubeDLApi.isInitialized$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
@@ -892,26 +863,18 @@ abstract class YoutubeDLCallback {
   /// Called when a log message is generated
   void onLog(String processId, String message, String level);
 
-  static void setUp(
-    YoutubeDLCallback? api, {
-    BinaryMessenger? binaryMessenger,
-    String messageChannelSuffix = '',
-  }) {
-    messageChannelSuffix =
-        messageChannelSuffix.isNotEmpty ? '.$messageChannelSuffix' : '';
+  static void setUp(YoutubeDLCallback? api, {BinaryMessenger? binaryMessenger, String messageChannelSuffix = '',}) {
+    messageChannelSuffix = messageChannelSuffix.isNotEmpty ? '.$messageChannelSuffix' : '';
     {
-      final BasicMessageChannel<
-          Object?> pigeonVar_channel = BasicMessageChannel<
-              Object?>(
-          'dev.flutter.pigeon.extractor.YoutubeDLCallback.onProgress$messageChannelSuffix',
-          pigeonChannelCodec,
+      final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
+          'dev.flutter.pigeon.extractor.YoutubeDLCallback.onProgress$messageChannelSuffix', pigeonChannelCodec,
           binaryMessenger: binaryMessenger);
       if (api == null) {
         pigeonVar_channel.setMessageHandler(null);
       } else {
         pigeonVar_channel.setMessageHandler((Object? message) async {
           assert(message != null,
-              'Argument for dev.flutter.pigeon.extractor.YoutubeDLCallback.onProgress was null.');
+          'Argument for dev.flutter.pigeon.extractor.YoutubeDLCallback.onProgress was null.');
           final List<Object?> args = (message as List<Object?>?)!;
           final String? arg_processId = (args[0] as String?);
           assert(arg_processId != null,
@@ -927,26 +890,22 @@ abstract class YoutubeDLCallback {
             return wrapResponse(empty: true);
           } on PlatformException catch (e) {
             return wrapResponse(error: e);
-          } catch (e) {
-            return wrapResponse(
-                error: PlatformException(code: 'error', message: e.toString()));
+          }          catch (e) {
+            return wrapResponse(error: PlatformException(code: 'error', message: e.toString()));
           }
         });
       }
     }
     {
-      final BasicMessageChannel<
-          Object?> pigeonVar_channel = BasicMessageChannel<
-              Object?>(
-          'dev.flutter.pigeon.extractor.YoutubeDLCallback.onDownloadStateChanged$messageChannelSuffix',
-          pigeonChannelCodec,
+      final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
+          'dev.flutter.pigeon.extractor.YoutubeDLCallback.onDownloadStateChanged$messageChannelSuffix', pigeonChannelCodec,
           binaryMessenger: binaryMessenger);
       if (api == null) {
         pigeonVar_channel.setMessageHandler(null);
       } else {
         pigeonVar_channel.setMessageHandler((Object? message) async {
           assert(message != null,
-              'Argument for dev.flutter.pigeon.extractor.YoutubeDLCallback.onDownloadStateChanged was null.');
+          'Argument for dev.flutter.pigeon.extractor.YoutubeDLCallback.onDownloadStateChanged was null.');
           final List<Object?> args = (message as List<Object?>?)!;
           final String? arg_processId = (args[0] as String?);
           assert(arg_processId != null,
@@ -959,26 +918,22 @@ abstract class YoutubeDLCallback {
             return wrapResponse(empty: true);
           } on PlatformException catch (e) {
             return wrapResponse(error: e);
-          } catch (e) {
-            return wrapResponse(
-                error: PlatformException(code: 'error', message: e.toString()));
+          }          catch (e) {
+            return wrapResponse(error: PlatformException(code: 'error', message: e.toString()));
           }
         });
       }
     }
     {
-      final BasicMessageChannel<
-          Object?> pigeonVar_channel = BasicMessageChannel<
-              Object?>(
-          'dev.flutter.pigeon.extractor.YoutubeDLCallback.onError$messageChannelSuffix',
-          pigeonChannelCodec,
+      final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
+          'dev.flutter.pigeon.extractor.YoutubeDLCallback.onError$messageChannelSuffix', pigeonChannelCodec,
           binaryMessenger: binaryMessenger);
       if (api == null) {
         pigeonVar_channel.setMessageHandler(null);
       } else {
         pigeonVar_channel.setMessageHandler((Object? message) async {
           assert(message != null,
-              'Argument for dev.flutter.pigeon.extractor.YoutubeDLCallback.onError was null.');
+          'Argument for dev.flutter.pigeon.extractor.YoutubeDLCallback.onError was null.');
           final List<Object?> args = (message as List<Object?>?)!;
           final String? arg_processId = (args[0] as String?);
           assert(arg_processId != null,
@@ -991,26 +946,22 @@ abstract class YoutubeDLCallback {
             return wrapResponse(empty: true);
           } on PlatformException catch (e) {
             return wrapResponse(error: e);
-          } catch (e) {
-            return wrapResponse(
-                error: PlatformException(code: 'error', message: e.toString()));
+          }          catch (e) {
+            return wrapResponse(error: PlatformException(code: 'error', message: e.toString()));
           }
         });
       }
     }
     {
-      final BasicMessageChannel<
-          Object?> pigeonVar_channel = BasicMessageChannel<
-              Object?>(
-          'dev.flutter.pigeon.extractor.YoutubeDLCallback.onLog$messageChannelSuffix',
-          pigeonChannelCodec,
+      final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
+          'dev.flutter.pigeon.extractor.YoutubeDLCallback.onLog$messageChannelSuffix', pigeonChannelCodec,
           binaryMessenger: binaryMessenger);
       if (api == null) {
         pigeonVar_channel.setMessageHandler(null);
       } else {
         pigeonVar_channel.setMessageHandler((Object? message) async {
           assert(message != null,
-              'Argument for dev.flutter.pigeon.extractor.YoutubeDLCallback.onLog was null.');
+          'Argument for dev.flutter.pigeon.extractor.YoutubeDLCallback.onLog was null.');
           final List<Object?> args = (message as List<Object?>?)!;
           final String? arg_processId = (args[0] as String?);
           assert(arg_processId != null,
@@ -1026,9 +977,8 @@ abstract class YoutubeDLCallback {
             return wrapResponse(empty: true);
           } on PlatformException catch (e) {
             return wrapResponse(error: e);
-          } catch (e) {
-            return wrapResponse(
-                error: PlatformException(code: 'error', message: e.toString()));
+          }          catch (e) {
+            return wrapResponse(error: PlatformException(code: 'error', message: e.toString()));
           }
         });
       }

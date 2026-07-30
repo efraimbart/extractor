@@ -10,6 +10,9 @@ import com.fasterxml.jackson.databind.ObjectMapper
  *
  * Prefer raw dump-json over youtubedl-android's VideoInfo POJO so we keep
  * null vs `"none"` codec semantics, `urls[]`, and `resolution` intact.
+ *
+ * Playlist / multi-video posts may emit multiple JSON objects (NDJSON) or a
+ * single playlist object with `entries[]` — both are expanded to a list.
  */
 class VideoInfoMapper {
 
@@ -17,6 +20,53 @@ class VideoInfoMapper {
 
     fun mapFromDumpJson(json: String): VideoInfo {
         return mapFromJson(objectMapper.readTree(json))
+    }
+
+    /** Parse one or more dump-json objects from yt-dlp stdout. */
+    fun mapAllFromDumpOutput(out: String): List<VideoInfo> {
+        val roots = parseJsonRoots(out)
+        if (roots.isEmpty()) {
+            throw IllegalStateException("yt-dlp --dump-json produced no JSON object")
+        }
+        val results = ArrayList<VideoInfo>()
+        for (root in roots) {
+            results.addAll(expandRoot(root))
+        }
+        return results.filter { hasPlayableMedia(it) }
+    }
+
+    private fun expandRoot(root: JsonNode): List<VideoInfo> {
+        val type = textOrNull(root, "_type")?.lowercase()
+        val entries = root.get("entries")
+        if ((type == "playlist" || type == "multi_video") &&
+            entries != null && entries.isArray
+        ) {
+            val out = ArrayList<VideoInfo>()
+            for (entry in entries) {
+                if (entry == null || entry.isNull) continue
+                // Nested playlist wrappers are rare; flatten one level.
+                val nestedType = textOrNull(entry, "_type")?.lowercase()
+                val nestedEntries = entry.get("entries")
+                if ((nestedType == "playlist" || nestedType == "multi_video") &&
+                    nestedEntries != null && nestedEntries.isArray
+                ) {
+                    for (child in nestedEntries) {
+                        if (child == null || child.isNull) continue
+                        out.add(mapFromJson(child))
+                    }
+                } else {
+                    out.add(mapFromJson(entry))
+                }
+            }
+            return out
+        }
+        return listOf(mapFromJson(root))
+    }
+
+    private fun hasPlayableMedia(info: VideoInfo): Boolean {
+        if (!info.url.isNullOrBlank()) return true
+        val formats = info.formats ?: return false
+        return formats.any { f -> f != null && !f.url.isNullOrBlank() }
     }
 
     fun mapFromJson(root: JsonNode): VideoInfo {
@@ -143,5 +193,51 @@ class VideoInfoMapper {
         // Unset numeric fields are commonly 0 in dump-json; treat as absent.
         if (n <= 0.0) return null
         return kotlin.math.round(n).toLong()
+    }
+
+    /** Extract top-level `{…}` objects from yt-dlp stdout (may include warnings). */
+    private fun parseJsonRoots(out: String): List<JsonNode> {
+        val roots = ArrayList<JsonNode>()
+        var i = 0
+        val n = out.length
+        while (i < n) {
+            val start = out.indexOf('{', i)
+            if (start < 0) break
+            var depth = 0
+            var inString = false
+            var escape = false
+            var end = -1
+            for (j in start until n) {
+                val c = out[j]
+                if (inString) {
+                    when {
+                        escape -> escape = false
+                        c == '\\' -> escape = true
+                        c == '"' -> inString = false
+                    }
+                    continue
+                }
+                when (c) {
+                    '"' -> inString = true
+                    '{' -> depth++
+                    '}' -> {
+                        depth--
+                        if (depth == 0) {
+                            end = j
+                            break
+                        }
+                    }
+                }
+            }
+            if (end < 0) break
+            val slice = out.substring(start, end + 1)
+            try {
+                roots.add(objectMapper.readTree(slice))
+            } catch (_: Exception) {
+                // Skip malformed blobs (e.g. truncated warning text).
+            }
+            i = end + 1
+        }
+        return roots
     }
 }

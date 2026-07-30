@@ -12,6 +12,10 @@ import java.util.concurrent.Executors
 
 /**
  * Service responsible for fetching video information via yt-dlp `--dump-json`.
+ *
+ * Multi-item posts (IG carousel, etc.) are returned as multiple [VideoInfo]s.
+ * YouTube watch URLs keep `--no-playlist` so a shared video+list link does not
+ * expand into the entire playlist.
  */
 class InfoService(private val context: Context) {
 
@@ -19,12 +23,12 @@ class InfoService(private val context: Context) {
     private val mapper = VideoInfoMapper()
     private val executor = Executors.newSingleThreadExecutor()
 
-    fun getVideoInfo(url: String, callback: (Result<VideoInfo>) -> Unit) {
+    fun getVideoInfo(url: String, callback: (Result<List<VideoInfo>>) -> Unit) {
         executor.execute {
             try {
-                val videoInfo = fetchDumpJson(url, emptyMap())
+                val videos = fetchDumpJson(url, emptyMap())
                 scope.launch {
-                    callback(Result.success(videoInfo))
+                    callback(Result.success(videos))
                 }
             } catch (e: Exception) {
                 scope.launch {
@@ -37,13 +41,13 @@ class InfoService(private val context: Context) {
     fun getVideoInfoWithOptions(
         url: String,
         options: Map<String?, String?>,
-        callback: (Result<VideoInfo>) -> Unit
+        callback: (Result<List<VideoInfo>>) -> Unit
     ) {
         executor.execute {
             try {
-                val videoInfo = fetchDumpJson(url, options)
+                val videos = fetchDumpJson(url, options)
                 scope.launch {
-                    callback(Result.success(videoInfo))
+                    callback(Result.success(videos))
                 }
             } catch (e: Exception) {
                 scope.launch {
@@ -60,11 +64,16 @@ class InfoService(private val context: Context) {
     private fun fetchDumpJson(
         url: String,
         options: Map<String?, String?>,
-    ): VideoInfo {
+    ): List<VideoInfo> {
         val request = YoutubeDLRequest(url)
         request.addOption("--dump-json")
-        request.addOption("--no-playlist")
         request.addOption("--no-update")
+        // Cap carousel / playlist expansion; avoid accidental huge playlists.
+        request.addOption("--playlist-end", "30")
+
+        if (shouldForceSingleVideo(url)) {
+            request.addOption("--no-playlist")
+        }
 
         options.forEach { (key, value) ->
             if (key == null) return@forEach
@@ -82,16 +91,22 @@ class InfoService(private val context: Context) {
         if (out.isEmpty()) {
             throw IllegalStateException("yt-dlp --dump-json returned empty output")
         }
-        // yt-dlp may print warnings before the JSON object; take the last `{…}` blob.
-        val json = extractJsonObject(out)
-            ?: throw IllegalStateException("yt-dlp --dump-json produced no JSON object")
-        return mapper.mapFromDumpJson(json)
+        val videos = mapper.mapAllFromDumpOutput(out)
+        if (videos.isEmpty()) {
+            throw IllegalStateException("yt-dlp --dump-json produced no playable entries")
+        }
+        return videos
     }
 
-    private fun extractJsonObject(out: String): String? {
-        val start = out.indexOf('{')
-        val end = out.lastIndexOf('}')
-        if (start < 0 || end <= start) return null
-        return out.substring(start, end + 1)
+    /**
+     * YouTube watch / youtu.be links often include `list=` — those should stay
+     * single-video. Explicit `/playlist` URLs may expand (still capped).
+     */
+    private fun shouldForceSingleVideo(url: String): Boolean {
+        val lower = url.lowercase()
+        val isYouTube = lower.contains("youtube.com") || lower.contains("youtu.be")
+        if (!isYouTube) return false
+        if (lower.contains("/playlist")) return false
+        return true
     }
 }

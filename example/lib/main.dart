@@ -172,7 +172,8 @@ class _ExamplePageState extends State<ExamplePage> {
     _addLog('→ Getting video info...');
 
     try {
-      final info = await _youtubeDL.getVideoInfo(_urlController.text);
+      final infos = await _youtubeDL.getVideoInfo(_urlController.text);
+      final info = infos.first;
 
       // Extract unique video qualities (with video codec)
       final videoFormats = info.formats

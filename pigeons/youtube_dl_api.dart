@@ -222,13 +222,15 @@ abstract class YoutubeDLApi {
   @async
   UpdateResult updateYoutubeDL(UpdateChannel channel);
 
-  /// Get video information without downloading
+  /// Get video information without downloading.
+  /// Returns one entry for a single video, or multiple for playlists/carousels.
   @async
-  VideoInfo getVideoInfo(String url);
+  List<VideoInfo> getVideoInfo(String url);
 
-  /// Get video information with custom options
+  /// Get video information with custom options.
+  /// Returns one entry for a single video, or multiple for playlists/carousels.
   @async
-  VideoInfo getVideoInfoWithOptions(String url, Map<String?, String?> options);
+  List<VideoInfo> getVideoInfoWithOptions(String url, Map<String?, String?> options);
 
   /// Download video
   @async

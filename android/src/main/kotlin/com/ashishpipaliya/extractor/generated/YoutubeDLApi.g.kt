@@ -211,6 +211,7 @@ data class VideoFormat (
   val vcodec: String? = null,
   val acodec: String? = null,
   val resolution: String? = null,
+  /** yt-dlp `http_headers` (User-Agent, Referer, Cookie, …) for CDN requests. */
   val httpHeaders: Map<String?, String?>? = null
 )
  {
@@ -277,6 +278,7 @@ data class VideoInfo (
   val fps: Long? = null,
   val vcodec: String? = null,
   val acodec: String? = null,
+  /** Top-level yt-dlp `http_headers` when formats omit them. */
   val httpHeaders: Map<String?, String?>? = null
 )
  {
@@ -589,10 +591,16 @@ interface YoutubeDLApi {
   fun getVersion(callback: (Result<VersionInfo>) -> Unit)
   /** Update youtube-dl binary */
   fun updateYoutubeDL(channel: UpdateChannel, callback: (Result<UpdateResult>) -> Unit)
-  /** Get video information without downloading */
-  fun getVideoInfo(url: String, callback: (Result<VideoInfo>) -> Unit)
-  /** Get video information with custom options */
-  fun getVideoInfoWithOptions(url: String, options: Map<String?, String?>, callback: (Result<VideoInfo>) -> Unit)
+  /**
+   * Get video information without downloading.
+   * Returns one entry for a single video, or multiple for playlists/carousels.
+   */
+  fun getVideoInfo(url: String, callback: (Result<List<VideoInfo>>) -> Unit)
+  /**
+   * Get video information with custom options.
+   * Returns one entry for a single video, or multiple for playlists/carousels.
+   */
+  fun getVideoInfoWithOptions(url: String, options: Map<String?, String?>, callback: (Result<List<VideoInfo>>) -> Unit)
   /** Download video */
   fun download(request: DownloadRequest, callback: (Result<DownloadResult>) -> Unit)
   /** Cancel a download by process ID */
@@ -673,7 +681,7 @@ interface YoutubeDLApi {
           channel.setMessageHandler { message, reply ->
             val args = message as List<Any?>
             val urlArg = args[0] as String
-            api.getVideoInfo(urlArg) { result: Result<VideoInfo> ->
+            api.getVideoInfo(urlArg) { result: Result<List<VideoInfo>> ->
               val error = result.exceptionOrNull()
               if (error != null) {
                 reply.reply(wrapError(error))
@@ -694,7 +702,7 @@ interface YoutubeDLApi {
             val args = message as List<Any?>
             val urlArg = args[0] as String
             val optionsArg = args[1] as Map<String?, String?>
-            api.getVideoInfoWithOptions(urlArg, optionsArg) { result: Result<VideoInfo> ->
+            api.getVideoInfoWithOptions(urlArg, optionsArg) { result: Result<List<VideoInfo>> ->
               val error = result.exceptionOrNull()
               if (error != null) {
                 reply.reply(wrapError(error))
