@@ -2,97 +2,146 @@ package com.ashishpipaliya.extractor.mapper
 
 import com.ashishpipaliya.extractor.generated.VideoFormat
 import com.ashishpipaliya.extractor.generated.VideoInfo
-import com.yausername.youtubedl_android.mapper.VideoInfo as NativeVideoInfo
-import com.yausername.youtubedl_android.mapper.VideoFormat as NativeVideoFormat
+import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.databind.ObjectMapper
 
 /**
- * Mapper to convert native VideoInfo to Pigeon-generated VideoInfo
- * Follows Single Responsibility Principle
+ * Maps yt-dlp `--dump-json` output into Pigeon VideoInfo.
+ *
+ * Prefer raw dump-json over youtubedl-android's VideoInfo POJO so we keep
+ * null vs `"none"` codec semantics, `urls[]`, and `resolution` intact.
  */
 class VideoInfoMapper {
 
-    fun map(nativeInfo: NativeVideoInfo): VideoInfo {
+    private val objectMapper = ObjectMapper()
+
+    fun mapFromDumpJson(json: String): VideoInfo {
+        return mapFromJson(objectMapper.readTree(json))
+    }
+
+    fun mapFromJson(root: JsonNode): VideoInfo {
+        val formatsNode = root.get("formats")
+        val formats = if (formatsNode != null && formatsNode.isArray) {
+            formatsNode.mapNotNull { node ->
+                if (node == null || node.isNull) null else mapFormat(node)
+            }
+        } else {
+            null
+        }
+
         return VideoInfo(
-            id = nativeInfo.id,
-            title = nativeInfo.title,
-            description = nativeInfo.description,
-            uploader = nativeInfo.uploader,
-            uploaderId = nativeInfo.uploaderId,
-            uploaderUrl = null, // Not available in native VideoInfo
-            channelId = null, // Not available in native VideoInfo
-            channelUrl = null, // Not available in native VideoInfo
-            duration = nativeInfo.duration?.toLong(),
-            viewCount = nativeInfo.viewCount?.toLong(),
-            likeCount = nativeInfo.likeCount?.toLong(),
-            thumbnail = nativeInfo.thumbnail,
-            url = nativeInfo.url,
-            formats = nativeInfo.formats?.map { mapFormat(it) },
-            ext = nativeInfo.ext,
-            width = nativeInfo.width?.toLong(),
-            height = nativeInfo.height?.toLong(),
-            fps = null, // Not available in native VideoInfo
-            vcodec = null, // Not available in native VideoInfo
-            acodec = null, // Not available in native VideoInfo
-            httpHeaders = readHttpHeaders(nativeInfo)
+            id = textOrNull(root, "id"),
+            title = textOrNull(root, "title"),
+            description = textOrNull(root, "description"),
+            uploader = textOrNull(root, "uploader"),
+            uploaderId = textOrNull(root, "uploader_id"),
+            uploaderUrl = textOrNull(root, "uploader_url"),
+            channelId = textOrNull(root, "channel_id"),
+            channelUrl = textOrNull(root, "channel_url"),
+            duration = resolveDurationSeconds(root, formatsNode),
+            viewCount = numberAsLong(root, "view_count"),
+            likeCount = numberAsLong(root, "like_count"),
+            thumbnail = textOrNull(root, "thumbnail"),
+            url = firstUrl(root),
+            formats = formats,
+            ext = textOrNull(root, "ext"),
+            width = numberAsLong(root, "width"),
+            height = numberAsLong(root, "height"),
+            fps = numberAsLong(root, "fps"),
+            vcodec = textOrNull(root, "vcodec"),
+            acodec = textOrNull(root, "acodec"),
+            httpHeaders = readHttpHeaders(root.get("http_headers"))
         )
     }
 
-    private fun mapFormat(nativeFormat: NativeVideoFormat): VideoFormat {
+    private fun mapFormat(node: JsonNode): VideoFormat {
+        val width = numberAsLong(node, "width")
+        val height = numberAsLong(node, "height")
+        val resolution = textOrNull(node, "resolution")
+            ?: textOrNull(node, "format")
+
         return VideoFormat(
-            formatId = nativeFormat.formatId,
-            formatNote = nativeFormat.formatNote,
-            ext = nativeFormat.ext,
-            url = nativeFormat.url,
-            width = nativeFormat.width?.toLong(),
-            height = nativeFormat.height?.toLong(),
-            fps = null, // Not available in native VideoFormat
-            filesize = null, // Not available in native VideoFormat
-            tbr = nativeFormat.tbr?.toLong(),
-            vcodec = nativeFormat.vcodec,
-            acodec = nativeFormat.acodec,
-            resolution = null, // Not available in native VideoFormat
-            httpHeaders = readHttpHeaders(nativeFormat)
+            formatId = textOrNull(node, "format_id"),
+            formatNote = textOrNull(node, "format_note"),
+            ext = textOrNull(node, "ext"),
+            url = firstUrl(node),
+            width = width,
+            height = height,
+            fps = numberAsLong(node, "fps"),
+            filesize = numberAsLong(node, "filesize")
+                ?: numberAsLong(node, "filesize_approx"),
+            tbr = numberAsLong(node, "tbr"),
+            // Preserve null vs "none" — callers must not treat missing as none.
+            vcodec = textOrNull(node, "vcodec"),
+            acodec = textOrNull(node, "acodec"),
+            resolution = resolution,
+            httpHeaders = readHttpHeaders(node.get("http_headers"))
         )
     }
 
-    /**
-     * Reads yt-dlp `http_headers` from native mapper types.
-     * Prefer getHttpHeaders(); fall back to httpHeaders / http_headers fields.
-     * Cookie values stay in the map as-is.
-     */
-    private fun readHttpHeaders(native: Any): Map<String?, String?>? {
-        try {
-            val getter = native.javaClass.methods.firstOrNull {
-                it.name == "getHttpHeaders" && it.parameterCount == 0
+    /** Prefer `url`, then first entry of `urls` (fragmented / multi-URL formats). */
+    private fun firstUrl(node: JsonNode): String? {
+        textOrNull(node, "url")?.let { return it }
+        val urls = node.get("urls") ?: return null
+        if (!urls.isArray) return null
+        for (u in urls) {
+            if (u != null && u.isTextual) {
+                val s = u.asText()
+                if (s.isNotBlank()) return s
             }
-            if (getter != null) {
-                val value = getter.invoke(native)
-                return normalizeHeaderMap(value)
-            }
-        } catch (_: Throwable) {
-            // fall through
         }
-
-        try {
-            val field = native.javaClass.declaredFields.firstOrNull {
-                it.name == "httpHeaders" || it.name == "http_headers"
-            }
-            if (field != null) {
-                field.isAccessible = true
-                return normalizeHeaderMap(field.get(native))
-            }
-        } catch (_: Throwable) {
-            // ignore
-        }
-
         return null
     }
 
-    private fun normalizeHeaderMap(value: Any?): Map<String?, String?>? {
-        if (value == null) return null
-        if (value !is Map<*, *>) return null
-        return value.entries.associate { (k, v) ->
-            k?.toString() to v?.toString()
+    private fun readHttpHeaders(node: JsonNode?): Map<String?, String?>? {
+        if (node == null || !node.isObject || node.isEmpty) return null
+        val out = linkedMapOf<String?, String?>()
+        val fields = node.fields()
+        while (fields.hasNext()) {
+            val entry = fields.next()
+            val value = entry.value
+            out[entry.key] = when {
+                value == null || value.isNull -> null
+                value.isTextual -> value.asText()
+                else -> value.toString()
+            }
         }
+        return out.ifEmpty { null }
+    }
+
+    private fun textOrNull(node: JsonNode, field: String): String? {
+        val v = node.get(field) ?: return null
+        if (v.isNull || !v.isValueNode) return null
+        val s = v.asText()
+        return s.ifBlank { null }
+    }
+
+    /**
+     * yt-dlp `duration` is seconds (often a float). Prefer top-level; some
+     * extractors only put it on formats — take the max in that case.
+     */
+    private fun resolveDurationSeconds(root: JsonNode, formatsNode: JsonNode?): Long? {
+        numberAsLong(root, "duration")?.let { return it }
+        if (formatsNode == null || !formatsNode.isArray) return null
+        var max: Long? = null
+        for (f in formatsNode) {
+            if (f == null || f.isNull) continue
+            val d = numberAsLong(f, "duration") ?: continue
+            if (max == null || d > max) max = d
+        }
+        return max
+    }
+
+    private fun numberAsLong(node: JsonNode, field: String): Long? {
+        val v = node.get(field) ?: return null
+        if (v.isNull) return null
+        val n = when {
+            v.isNumber -> v.asDouble()
+            v.isTextual -> v.asText().toDoubleOrNull() ?: return null
+            else -> return null
+        }
+        // Unset numeric fields are commonly 0 in dump-json; treat as absent.
+        if (n <= 0.0) return null
+        return kotlin.math.round(n).toLong()
     }
 }
