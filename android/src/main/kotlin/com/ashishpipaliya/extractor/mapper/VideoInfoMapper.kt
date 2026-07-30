@@ -32,7 +32,8 @@ class VideoInfoMapper {
             height = nativeInfo.height?.toLong(),
             fps = null, // Not available in native VideoInfo
             vcodec = null, // Not available in native VideoInfo
-            acodec = null // Not available in native VideoInfo
+            acodec = null, // Not available in native VideoInfo
+            httpHeaders = readHttpHeaders(nativeInfo)
         )
     }
 
@@ -49,7 +50,49 @@ class VideoInfoMapper {
             tbr = nativeFormat.tbr?.toLong(),
             vcodec = nativeFormat.vcodec,
             acodec = nativeFormat.acodec,
-            resolution = null // Not available in native VideoFormat
+            resolution = null, // Not available in native VideoFormat
+            httpHeaders = readHttpHeaders(nativeFormat)
         )
+    }
+
+    /**
+     * Reads yt-dlp `http_headers` from native mapper types.
+     * Prefer getHttpHeaders(); fall back to httpHeaders / http_headers fields.
+     * Cookie values stay in the map as-is.
+     */
+    private fun readHttpHeaders(native: Any): Map<String?, String?>? {
+        try {
+            val getter = native.javaClass.methods.firstOrNull {
+                it.name == "getHttpHeaders" && it.parameterCount == 0
+            }
+            if (getter != null) {
+                val value = getter.invoke(native)
+                return normalizeHeaderMap(value)
+            }
+        } catch (_: Throwable) {
+            // fall through
+        }
+
+        try {
+            val field = native.javaClass.declaredFields.firstOrNull {
+                it.name == "httpHeaders" || it.name == "http_headers"
+            }
+            if (field != null) {
+                field.isAccessible = true
+                return normalizeHeaderMap(field.get(native))
+            }
+        } catch (_: Throwable) {
+            // ignore
+        }
+
+        return null
+    }
+
+    private fun normalizeHeaderMap(value: Any?): Map<String?, String?>? {
+        if (value == null) return null
+        if (value !is Map<*, *>) return null
+        return value.entries.associate { (k, v) ->
+            k?.toString() to v?.toString()
+        }
     }
 }

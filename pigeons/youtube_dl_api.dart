@@ -72,6 +72,8 @@ class VideoFormat {
   final String? vcodec;
   final String? acodec;
   final String? resolution;
+  /// yt-dlp `http_headers` (User-Agent, Referer, Cookie, …) for CDN requests.
+  final Map<String?, String?>? httpHeaders;
 
   VideoFormat({
     this.formatId,
@@ -86,6 +88,7 @@ class VideoFormat {
     this.vcodec,
     this.acodec,
     this.resolution,
+    this.httpHeaders,
   });
 }
 
@@ -111,6 +114,8 @@ class VideoInfo {
   final int? fps;
   final String? vcodec;
   final String? acodec;
+  /// Top-level yt-dlp `http_headers` when formats omit them.
+  final Map<String?, String?>? httpHeaders;
 
   VideoInfo({
     this.id,
@@ -133,6 +138,7 @@ class VideoInfo {
     this.fps,
     this.vcodec,
     this.acodec,
+    this.httpHeaders,
   });
 }
 

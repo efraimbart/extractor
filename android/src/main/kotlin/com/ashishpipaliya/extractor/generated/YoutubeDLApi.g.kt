@@ -210,7 +210,8 @@ data class VideoFormat (
   val tbr: Long? = null,
   val vcodec: String? = null,
   val acodec: String? = null,
-  val resolution: String? = null
+  val resolution: String? = null,
+  val httpHeaders: Map<String?, String?>? = null
 )
  {
   companion object {
@@ -227,7 +228,8 @@ data class VideoFormat (
       val vcodec = pigeonVar_list[9] as String?
       val acodec = pigeonVar_list[10] as String?
       val resolution = pigeonVar_list[11] as String?
-      return VideoFormat(formatId, formatNote, ext, url, width, height, fps, filesize, tbr, vcodec, acodec, resolution)
+      val httpHeaders = pigeonVar_list[12] as Map<String?, String?>?
+      return VideoFormat(formatId, formatNote, ext, url, width, height, fps, filesize, tbr, vcodec, acodec, resolution, httpHeaders)
     }
   }
   fun toList(): List<Any?> {
@@ -244,6 +246,7 @@ data class VideoFormat (
       vcodec,
       acodec,
       resolution,
+      httpHeaders,
     )
   }
 }
@@ -273,7 +276,8 @@ data class VideoInfo (
   val height: Long? = null,
   val fps: Long? = null,
   val vcodec: String? = null,
-  val acodec: String? = null
+  val acodec: String? = null,
+  val httpHeaders: Map<String?, String?>? = null
 )
  {
   companion object {
@@ -298,7 +302,8 @@ data class VideoInfo (
       val fps = pigeonVar_list[17] as Long?
       val vcodec = pigeonVar_list[18] as String?
       val acodec = pigeonVar_list[19] as String?
-      return VideoInfo(id, title, description, uploader, uploaderId, uploaderUrl, channelId, channelUrl, duration, viewCount, likeCount, thumbnail, url, formats, ext, width, height, fps, vcodec, acodec)
+      val httpHeaders = pigeonVar_list[20] as Map<String?, String?>?
+      return VideoInfo(id, title, description, uploader, uploaderId, uploaderUrl, channelId, channelUrl, duration, viewCount, likeCount, thumbnail, url, formats, ext, width, height, fps, vcodec, acodec, httpHeaders)
     }
   }
   fun toList(): List<Any?> {
@@ -323,6 +328,7 @@ data class VideoInfo (
       fps,
       vcodec,
       acodec,
+      httpHeaders,
     )
   }
 }

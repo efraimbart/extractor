@@ -178,6 +178,7 @@ class VideoFormat {
     this.vcodec,
     this.acodec,
     this.resolution,
+    this.httpHeaders,
   });
 
   String? formatId;
@@ -204,6 +205,8 @@ class VideoFormat {
 
   String? resolution;
 
+  Map<String?, String?>? httpHeaders;
+
   Object encode() {
     return <Object?>[
       formatId,
@@ -218,6 +221,7 @@ class VideoFormat {
       vcodec,
       acodec,
       resolution,
+      httpHeaders,
     ];
   }
 
@@ -236,6 +240,9 @@ class VideoFormat {
       vcodec: result[9] as String?,
       acodec: result[10] as String?,
       resolution: result[11] as String?,
+      httpHeaders: (result[12] as Map<Object?, Object?>?)?.map(
+        (k, v) => MapEntry(k as String?, v as String?),
+      ),
     );
   }
 }
@@ -263,6 +270,7 @@ class VideoInfo {
     this.fps,
     this.vcodec,
     this.acodec,
+    this.httpHeaders,
   });
 
   String? id;
@@ -305,6 +313,8 @@ class VideoInfo {
 
   String? acodec;
 
+  Map<String?, String?>? httpHeaders;
+
   Object encode() {
     return <Object?>[
       id,
@@ -327,6 +337,7 @@ class VideoInfo {
       fps,
       vcodec,
       acodec,
+      httpHeaders,
     ];
   }
 
@@ -353,6 +364,9 @@ class VideoInfo {
       fps: result[17] as int?,
       vcodec: result[18] as String?,
       acodec: result[19] as String?,
+      httpHeaders: (result[20] as Map<Object?, Object?>?)?.map(
+        (k, v) => MapEntry(k as String?, v as String?),
+      ),
     );
   }
 }
