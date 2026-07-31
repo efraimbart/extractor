@@ -71,8 +71,11 @@ class InfoService(private val context: Context) {
         val request = YoutubeDLRequest(url)
         request.addOption("--dump-json")
         request.addOption("--no-update")
-        // Cap carousel / playlist expansion; avoid accidental huge playlists.
-        request.addOption("--playlist-end", "30")
+        // Don't abort the whole carousel/playlist when one entry fails.
+        request.addOption("--ignore-errors")
+        // Cap expansion; callers may override via --playlist-end.
+        val playlistEnd = options["--playlist-end"]?.takeIf { it.isNotBlank() } ?: "30"
+        request.addOption("--playlist-end", playlistEnd)
 
         // Persist the in-process cookie jar so we can attach Cookie headers for
         // Flutter's proxy/player (dump-json often omits them from http_headers).
@@ -88,10 +91,12 @@ class InfoService(private val context: Context) {
 
         options.forEach { (key, value) ->
             if (key == null) return@forEach
-            // Caller options must not strip dump-json / our cookie dump.
+            // Caller options must not strip dump-json / our cookie dump / defaults.
             if (key == "--dump-json" || key == "-j") return@forEach
             if (key == "--cookies") return@forEach
-            if (value != null) {
+            if (key == "--playlist-end") return@forEach
+            if (key == "--ignore-errors") return@forEach
+            if (value != null && value.isNotEmpty()) {
                 request.addOption(key, value)
             } else {
                 request.addOption(key)
