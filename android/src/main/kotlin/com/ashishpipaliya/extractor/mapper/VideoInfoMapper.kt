@@ -100,7 +100,12 @@ class VideoInfoMapper {
             fps = numberAsLong(root, "fps"),
             vcodec = textOrNull(root, "vcodec"),
             acodec = textOrNull(root, "acodec"),
-            httpHeaders = readHttpHeaders(root.get("http_headers"))
+            // yt-dlp keeps session cookies under `cookies`, not http_headers.Cookie
+            // (GHSA-v8mc-9377-rwjj). Merge so Flutter proxy/player can send them.
+            httpHeaders = mergeCookiesIntoHeaders(
+                readHttpHeaders(root.get("http_headers")),
+                textOrNull(root, "cookies"),
+            ),
         )
     }
 
@@ -125,8 +130,55 @@ class VideoInfoMapper {
             vcodec = textOrNull(node, "vcodec"),
             acodec = textOrNull(node, "acodec"),
             resolution = resolution,
-            httpHeaders = readHttpHeaders(node.get("http_headers"))
+            httpHeaders = mergeCookiesIntoHeaders(
+                readHttpHeaders(node.get("http_headers")),
+                textOrNull(node, "cookies"),
+            ),
         )
+    }
+
+    /**
+     * Turn yt-dlp's `cookies` field into a Cookie request header and merge into
+     * [headers]. The dump format may include Domain=/Path=/Secure attributes;
+     * those are stripped so only `name=value` pairs remain.
+     */
+    private fun mergeCookiesIntoHeaders(
+        headers: Map<String?, String?>?,
+        cookiesField: String?,
+    ): Map<String?, String?>? {
+        val cookieHeader = cookieRequestHeader(cookiesField)
+        if (cookieHeader.isNullOrBlank()) return headers
+
+        val out = linkedMapOf<String?, String?>()
+        if (headers != null) out.putAll(headers)
+        val hasCookie = out.keys.any { it != null && it.equals("Cookie", ignoreCase = true) }
+        if (!hasCookie) {
+            out["Cookie"] = cookieHeader
+        }
+        return out
+    }
+
+    /** `name=value; …` suitable for an HTTP Cookie request header. */
+    private fun cookieRequestHeader(raw: String?): String? {
+        if (raw.isNullOrBlank()) return null
+        val pairs = raw.split(';')
+            .map { it.trim() }
+            .filter { part ->
+                if (part.isEmpty()) return@filter false
+                val name = part.substringBefore('=', missingDelimiterValue = part).trim()
+                // Skip Set-Cookie-style attributes yt-dlp embeds in infojson.
+                val lower = name.lowercase()
+                lower != "domain" &&
+                    lower != "path" &&
+                    lower != "secure" &&
+                    lower != "expires" &&
+                    lower != "version" &&
+                    lower != "httponly" &&
+                    lower != "max-age" &&
+                    lower != "samesite" &&
+                    part.contains('=')
+            }
+        return pairs.takeIf { it.isNotEmpty() }?.joinToString("; ")
     }
 
     /** Prefer `url`, then first entry of `urls` (fragmented / multi-URL formats). */

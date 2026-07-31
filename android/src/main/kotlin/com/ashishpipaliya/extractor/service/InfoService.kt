@@ -1,6 +1,7 @@
 package com.ashishpipaliya.extractor.service
 
 import android.content.Context
+import android.util.Log
 import com.ashishpipaliya.extractor.generated.VideoInfo
 import com.ashishpipaliya.extractor.mapper.VideoInfoMapper
 import com.yausername.youtubedl_android.YoutubeDL
@@ -8,6 +9,8 @@ import com.yausername.youtubedl_android.YoutubeDLRequest
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import java.io.File
+import java.net.URI
 import java.util.concurrent.Executors
 
 /**
@@ -71,14 +74,23 @@ class InfoService(private val context: Context) {
         // Cap carousel / playlist expansion; avoid accidental huge playlists.
         request.addOption("--playlist-end", "30")
 
+        // Persist the in-process cookie jar so we can attach Cookie headers for
+        // Flutter's proxy/player (dump-json often omits them from http_headers).
+        val cookieFile = File(
+            context.cacheDir,
+            "ytdlp-cookies-${System.currentTimeMillis()}-${(0..9999).random()}.txt",
+        )
+        request.addOption("--cookies", cookieFile.absolutePath)
+
         if (shouldForceSingleVideo(url)) {
             request.addOption("--no-playlist")
         }
 
         options.forEach { (key, value) ->
             if (key == null) return@forEach
-            // Caller options must not strip dump-json.
+            // Caller options must not strip dump-json / our cookie dump.
             if (key == "--dump-json" || key == "-j") return@forEach
+            if (key == "--cookies") return@forEach
             if (value != null) {
                 request.addOption(key, value)
             } else {
@@ -86,16 +98,117 @@ class InfoService(private val context: Context) {
             }
         }
 
-        val response = YoutubeDL.getInstance().execute(request)
-        val out = response.out?.trim().orEmpty()
-        if (out.isEmpty()) {
-            throw IllegalStateException("yt-dlp --dump-json returned empty output")
+        try {
+            val response = YoutubeDL.getInstance().execute(request)
+            val out = response.out?.trim().orEmpty()
+            if (out.isEmpty()) {
+                throw IllegalStateException("yt-dlp --dump-json returned empty output")
+            }
+            var videos = mapper.mapAllFromDumpOutput(out)
+            if (videos.isEmpty()) {
+                throw IllegalStateException("yt-dlp --dump-json produced no playable entries")
+            }
+            videos = enrichWithCookieJar(videos, cookieFile)
+            return videos
+        } finally {
+            if (cookieFile.exists()) {
+                cookieFile.delete()
+            }
         }
-        val videos = mapper.mapAllFromDumpOutput(out)
-        if (videos.isEmpty()) {
-            throw IllegalStateException("yt-dlp --dump-json produced no playable entries")
+    }
+
+    /**
+     * Merge Netscape jar cookies into each format/info httpHeaders when missing.
+     * Prefer host-matched cookies for the stream URL.
+     */
+    private fun enrichWithCookieJar(
+        videos: List<VideoInfo>,
+        cookieFile: File,
+    ): List<VideoInfo> {
+        if (!cookieFile.exists() || cookieFile.length() == 0L) {
+            Log.d(TAG, "cookie jar empty after dump-json")
+            return videos
         }
-        return videos
+        val jar = parseNetscapeCookies(cookieFile)
+        if (jar.isEmpty()) {
+            Log.d(TAG, "cookie jar parsed empty (${cookieFile.length()} bytes)")
+            return videos
+        }
+        Log.d(TAG, "cookie jar entries=${jar.size}")
+
+        return videos.map { info ->
+            val infoHeaders = ensureCookieHeader(info.httpHeaders, info.url, jar)
+            val formats = info.formats?.map { fmt ->
+                if (fmt == null) return@map null
+                val headers = ensureCookieHeader(fmt.httpHeaders ?: infoHeaders, fmt.url, jar)
+                if (headers === fmt.httpHeaders) fmt
+                else fmt.copy(httpHeaders = headers)
+            }
+            if (infoHeaders === info.httpHeaders && formats === info.formats) info
+            else info.copy(httpHeaders = infoHeaders, formats = formats)
+        }
+    }
+
+    private fun ensureCookieHeader(
+        existing: Map<String?, String?>?,
+        url: String?,
+        jar: List<NetscapeCookie>,
+    ): Map<String?, String?>? {
+        if (existing?.keys?.any { it != null && it.equals("Cookie", ignoreCase = true) } == true) {
+            return existing
+        }
+        val header = cookieHeaderForUrl(url, jar) ?: return existing
+        val out = linkedMapOf<String?, String?>()
+        if (existing != null) out.putAll(existing)
+        out["Cookie"] = header
+        return out
+    }
+
+    private fun cookieHeaderForUrl(url: String?, jar: List<NetscapeCookie>): String? {
+        if (url.isNullOrBlank() || jar.isEmpty()) return null
+        val host = try {
+            URI(url).host?.lowercase() ?: return null
+        } catch (_: Exception) {
+            return null
+        }
+        val matched = jar.filter { cookie ->
+            val domain = cookie.domain.lowercase().removePrefix(".")
+            host == domain || host.endsWith(".$domain")
+        }
+        if (matched.isEmpty()) return null
+        // Later jar entries win on duplicate names (yt-dlp refresh order).
+        val byName = linkedMapOf<String, String>()
+        for (c in matched) {
+            byName[c.name] = c.value
+        }
+        return byName.entries.joinToString("; ") { "${it.key}=${it.value}" }
+    }
+
+    private data class NetscapeCookie(
+        val domain: String,
+        val name: String,
+        val value: String,
+    )
+
+    private fun parseNetscapeCookies(file: File): List<NetscapeCookie> {
+        val out = ArrayList<NetscapeCookie>()
+        file.forEachLine { raw ->
+            var line = raw.trim()
+            if (line.isEmpty()) return@forEachLine
+            if (line.startsWith("#HttpOnly_", ignoreCase = true)) {
+                line = line.removePrefix("#HttpOnly_").removePrefix("#httponly_")
+            } else if (line.startsWith("#")) {
+                return@forEachLine
+            }
+            val parts = line.split('\t')
+            if (parts.size < 7) return@forEachLine
+            val domain = parts[0].trim()
+            val name = parts[5].trim()
+            val value = parts[6].trim()
+            if (domain.isEmpty() || name.isEmpty()) return@forEachLine
+            out.add(NetscapeCookie(domain = domain, name = name, value = value))
+        }
+        return out
     }
 
     /**
@@ -108,5 +221,9 @@ class InfoService(private val context: Context) {
         if (!isYouTube) return false
         if (lower.contains("/playlist")) return false
         return true
+    }
+
+    companion object {
+        private const val TAG = "InfoService"
     }
 }
