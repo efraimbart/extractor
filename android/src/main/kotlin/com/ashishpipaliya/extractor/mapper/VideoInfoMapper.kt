@@ -64,7 +64,9 @@ class VideoInfoMapper {
     }
 
     private fun hasPlayableMedia(info: VideoInfo): Boolean {
+        // Flat search / url_result entries only expose a webpage URL (no formats).
         if (!info.url.isNullOrBlank()) return true
+        if (!info.id.isNullOrBlank() && !info.title.isNullOrBlank()) return true
         val formats = info.formats ?: return false
         return formats.any { f -> f != null && !f.url.isNullOrBlank() }
     }
@@ -79,11 +81,15 @@ class VideoInfoMapper {
             null
         }
 
+        val id = textOrNull(root, "id")
+        val resolvedUrl = firstUrl(root) ?: synthesizeWatchUrl(root, id)
         return VideoInfo(
-            id = textOrNull(root, "id"),
+            id = id,
             title = textOrNull(root, "title"),
             description = textOrNull(root, "description"),
-            uploader = textOrNull(root, "uploader"),
+            uploader = textOrNull(root, "uploader")
+                ?: textOrNull(root, "channel")
+                ?: textOrNull(root, "uploader_id"),
             uploaderId = textOrNull(root, "uploader_id"),
             uploaderUrl = textOrNull(root, "uploader_url"),
             channelId = textOrNull(root, "channel_id"),
@@ -91,8 +97,8 @@ class VideoInfoMapper {
             duration = resolveDurationSeconds(root, formatsNode),
             viewCount = numberAsLong(root, "view_count"),
             likeCount = numberAsLong(root, "like_count"),
-            thumbnail = textOrNull(root, "thumbnail"),
-            url = firstUrl(root),
+            thumbnail = resolveThumbnail(root),
+            url = resolvedUrl,
             formats = formats,
             ext = textOrNull(root, "ext"),
             width = numberAsLong(root, "width"),
@@ -107,6 +113,36 @@ class VideoInfoMapper {
                 textOrNull(root, "cookies"),
             ),
         )
+    }
+
+    /** Flat-playlist entries often omit `thumbnail` but include `thumbnails[]`. */
+    private fun resolveThumbnail(root: JsonNode): String? {
+        textOrNull(root, "thumbnail")?.let { return it }
+        val thumbs = root.get("thumbnails") ?: return null
+        if (!thumbs.isArray || thumbs.isEmpty) return null
+        // Prefer last entry (usually highest resolution).
+        for (i in thumbs.size() - 1 downTo 0) {
+            val node = thumbs.get(i) ?: continue
+            textOrNull(node, "url")?.let { return it }
+        }
+        return null
+    }
+
+    /**
+     * When flat search only yields an id + extractor hint, synthesize a watch URL
+     * so callers can deep-extract later without a second search hop.
+     */
+    private fun synthesizeWatchUrl(root: JsonNode, id: String?): String? {
+        if (id.isNullOrBlank()) return null
+        val ie = (textOrNull(root, "ie_key") ?: textOrNull(root, "extractor_key")
+            ?: textOrNull(root, "extractor") ?: "").lowercase()
+        return when {
+            ie.contains("youtube") || ie == "youtu" ->
+                "https://www.youtube.com/watch?v=$id"
+            ie.contains("soundcloud") ->
+                textOrNull(root, "webpage_url")
+            else -> textOrNull(root, "webpage_url")
+        }
     }
 
     private fun mapFormat(node: JsonNode): VideoFormat {
@@ -181,9 +217,14 @@ class VideoInfoMapper {
         return pairs.takeIf { it.isNotEmpty() }?.joinToString("; ")
     }
 
-    /** Prefer `url`, then first entry of `urls` (fragmented / multi-URL formats). */
+    /**
+     * Prefer stream `url`, then `webpage_url` / `original_url` (flat search),
+     * then first entry of `urls` (fragmented / multi-URL formats).
+     */
     private fun firstUrl(node: JsonNode): String? {
         textOrNull(node, "url")?.let { return it }
+        textOrNull(node, "webpage_url")?.let { return it }
+        textOrNull(node, "original_url")?.let { return it }
         val urls = node.get("urls") ?: return null
         if (!urls.isArray) return null
         for (u in urls) {

@@ -1,6 +1,7 @@
 library extractor;
 
 export 'src/youtube_dl_flutter.dart';
+export 'src/search.dart';
 export 'src/generated/youtube_dl_api.g.dart'
     show
         UpdateChannel,

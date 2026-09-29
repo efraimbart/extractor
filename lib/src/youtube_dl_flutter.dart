@@ -2,6 +2,7 @@ import 'dart:async';
 import 'generated/youtube_dl_api.g.dart';
 import 'models/download_progress.dart';
 import 'models/download_state.dart';
+import 'search.dart';
 
 /// Main Flutter API for YouTube-DL operations
 /// Provides a clean, type-safe interface with proper error handling
@@ -89,6 +90,14 @@ class YoutubeDLFlutter {
     Map<String, String> options,
   ) async {
     return await _api.getVideoInfoWithOptions(url, options);
+  }
+
+  /// Flat playlist search via a [SearchRequest] (ytsearch / ytsearchdate / …).
+  ///
+  /// Uses `--flat-playlist` so results are lightweight metadata only; callers
+  /// should deep-extract a chosen entry with [getVideoInfo] when opened.
+  Future<List<VideoInfo>> search(SearchRequest request) async {
+    return getVideoInfoWithOptions(request.url, request.options);
   }
 
   /// Download a video

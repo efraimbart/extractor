@@ -24,7 +24,8 @@ class InfoService(private val context: Context) {
 
     private val scope = CoroutineScope(Dispatchers.Main)
     private val mapper = VideoInfoMapper()
-    private val executor = Executors.newSingleThreadExecutor()
+    // Bounded pool so flat searches can fan out in parallel (UI caps concurrency).
+    private val executor = Executors.newFixedThreadPool(4)
 
     fun getVideoInfo(url: String, callback: (Result<List<VideoInfo>>) -> Unit) {
         executor.execute {
@@ -96,6 +97,8 @@ class InfoService(private val context: Context) {
             if (key == "--cookies") return@forEach
             if (key == "--playlist-end") return@forEach
             if (key == "--ignore-errors") return@forEach
+            // Internal: not a yt-dlp flag (used for cancel).
+            if (key == "__process_id") return@forEach
             if (value != null && value.isNotEmpty()) {
                 request.addOption(key, value)
             } else {
@@ -103,8 +106,14 @@ class InfoService(private val context: Context) {
             }
         }
 
+        // Optional process id (via "__process_id" option) enables destroyProcessById.
+        val processId = options["__process_id"]?.takeIf { it.isNotBlank() }
         try {
-            val response = YoutubeDL.getInstance().execute(request)
+            val response = if (processId != null) {
+                YoutubeDL.getInstance().execute(request, processId) { _, _, _ -> }
+            } else {
+                YoutubeDL.getInstance().execute(request)
+            }
             val out = response.out?.trim().orEmpty()
             if (out.isEmpty()) {
                 throw IllegalStateException("yt-dlp --dump-json returned empty output")
@@ -218,14 +227,26 @@ class InfoService(private val context: Context) {
 
     /**
      * YouTube watch / youtu.be links often include `list=` — those should stay
-     * single-video. Explicit `/playlist` URLs may expand (still capped).
+     * single-video. Explicit `/playlist` URLs, search result pages, and
+     * yt-dlp search prefixes (`ytsearchN:…`) must expand as playlists.
      */
     private fun shouldForceSingleVideo(url: String): Boolean {
-        val lower = url.lowercase()
+        val lower = url.lowercase().trim()
+        if (isSearchQuery(lower)) return false
         val isYouTube = lower.contains("youtube.com") || lower.contains("youtu.be")
         if (!isYouTube) return false
         if (lower.contains("/playlist")) return false
+        if (lower.contains("/results") || lower.contains("search_query=")) return false
         return true
+    }
+
+    private fun isSearchQuery(lower: String): Boolean {
+        return lower.startsWith("ytsearch") ||
+            lower.startsWith("scsearch") ||
+            lower.startsWith("nicosearch") ||
+            lower.startsWith("bvsearch") ||
+            lower.startsWith("bilisearch") ||
+            lower.startsWith("gvsearch")
     }
 
     companion object {
