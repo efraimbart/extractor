@@ -51,7 +51,8 @@ class FlutterError (
 
 /** Represents the update channel for youtube-dl binary */
 enum class UpdateChannel(val raw: Int) {
-  STABLE(0);
+  STABLE(0),
+  NIGHTLY(1);
 
   companion object {
     fun ofRaw(raw: Int): UpdateChannel? {
@@ -64,7 +65,9 @@ enum class UpdateChannel(val raw: Int) {
 enum class OperationStatus(val raw: Int) {
   SUCCESS(0),
   ERROR(1),
-  CANCELLED(2);
+  CANCELLED(2),
+  /** Remote latest matches the binary that actually runs (not merely saved prefs). */
+  ALREADY_UP_TO_DATE(3);
 
   companion object {
     fun ofRaw(raw: Int): OperationStatus? {

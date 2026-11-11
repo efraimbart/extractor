@@ -1,6 +1,6 @@
 name: extractor
 description: A robust Flutter plugin for downloading videos and audio from 1000+ websites using yt-dlp. Features quality selection, format conversion, progress tracking, and more.
-version: 1.0.0
+version: 1.1.0
 homepage: https://github.com/ashishpipaliya/extractor
 repository: https://github.com/ashishpipaliya/extractor
 issue_tracker: https://github.com/ashishpipaliya/extractor/issues

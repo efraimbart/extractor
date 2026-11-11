@@ -168,12 +168,16 @@ class InfoService(private val context: Context) {
         url: String?,
         jar: List<NetscapeCookie>,
     ): Map<String?, String?>? {
-        if (existing?.keys?.any { it != null && it.equals("Cookie", ignoreCase = true) } == true) {
-            return existing
-        }
         val header = cookieHeaderForUrl(url, jar) ?: return existing
+        // Prefer Netscape jar over yt-dlp `cookies` field: the field often keeps
+        // Set-Cookie quotes (tt_chain_token="…==") which TikTok CDN rejects.
         val out = linkedMapOf<String?, String?>()
-        if (existing != null) out.putAll(existing)
+        if (existing != null) {
+            for ((k, v) in existing) {
+                if (k != null && k.equals("Cookie", ignoreCase = true)) continue
+                out[k] = v
+            }
+        }
         out["Cookie"] = header
         return out
     }

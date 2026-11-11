@@ -14,6 +14,7 @@ import 'package:pigeon/pigeon.dart';
 /// Represents the update channel for youtube-dl binary
 enum UpdateChannel {
   stable,
+  nightly,
 }
 
 /// Represents the status of an operation
@@ -21,6 +22,8 @@ enum OperationStatus {
   success,
   error,
   cancelled,
+  /// Remote latest matches the binary that actually runs (not merely saved prefs).
+  alreadyUpToDate,
 }
 
 /// Configuration for initializing the library

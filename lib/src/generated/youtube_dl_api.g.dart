@@ -28,6 +28,7 @@ List<Object?> wrapResponse({Object? result, PlatformException? error, bool empty
 /// Represents the update channel for youtube-dl binary
 enum UpdateChannel {
   stable,
+  nightly,
 }
 
 /// Represents the status of an operation
@@ -35,6 +36,8 @@ enum OperationStatus {
   success,
   error,
   cancelled,
+  /// Remote latest matches the binary that actually runs (not merely saved prefs).
+  alreadyUpToDate,
 }
 
 /// Predefined download templates for common use cases

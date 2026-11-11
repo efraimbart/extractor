@@ -9,6 +9,11 @@ enum SearchBackend {
   youtube('ytsearch', 'YouTube'),
 
   /// YouTube newest-first (`ytsearchdate`).
+  ///
+  /// Dead on yt-dlp ≥ ~2026.02: [YoutubeSearchDateIE was removed](https://github.com/yt-dlp/yt-dlp/pull/15959)
+  /// after YouTube dropped the date filter. Requests become
+  /// `Unsupported url scheme: "ytsearchdateN"`. Kept on the enum for API
+  /// compatibility; do **not** put in [kDefaultSearchBackends].
   youtubeDate('ytsearchdate', 'YouTube · Recent'),
 
   /// SoundCloud tracks (`scsearch`) — optional audio-leaning source.
@@ -70,8 +75,9 @@ class SearchRequest {
   }
 }
 
-/// Default backends for fan-out search (YouTube relevance + recent).
+/// Default backends for fan-out search (YouTube relevance only).
+///
+/// `youtubeDate` is omitted: yt-dlp removed `ytsearchdate` upstream (2026-02).
 const List<SearchBackend> kDefaultSearchBackends = [
   SearchBackend.youtube,
-  SearchBackend.youtubeDate,
 ];

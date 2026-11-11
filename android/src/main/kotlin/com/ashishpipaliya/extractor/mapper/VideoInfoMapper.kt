@@ -199,20 +199,32 @@ class VideoInfoMapper {
         if (raw.isNullOrBlank()) return null
         val pairs = raw.split(';')
             .map { it.trim() }
-            .filter { part ->
-                if (part.isEmpty()) return@filter false
-                val name = part.substringBefore('=', missingDelimiterValue = part).trim()
+            .mapNotNull { part ->
+                if (part.isEmpty() || !part.contains('=')) return@mapNotNull null
+                val name = part.substringBefore('=').trim()
+                var value = part.substringAfter('=').trim()
                 // Skip Set-Cookie-style attributes yt-dlp embeds in infojson.
                 val lower = name.lowercase()
-                lower != "domain" &&
-                    lower != "path" &&
-                    lower != "secure" &&
-                    lower != "expires" &&
-                    lower != "version" &&
-                    lower != "httponly" &&
-                    lower != "max-age" &&
-                    lower != "samesite" &&
-                    part.contains('=')
+                if (lower == "domain" ||
+                    lower == "path" ||
+                    lower == "secure" ||
+                    lower == "expires" ||
+                    lower == "version" ||
+                    lower == "httponly" ||
+                    lower == "max-age" ||
+                    lower == "samesite"
+                ) {
+                    return@mapNotNull null
+                }
+                // yt-dlp quotes values that contain `=` (e.g. tt_chain_token="…==").
+                // Cookie request headers must send the raw value — quotes → TikTok CDN 403.
+                if (value.length >= 2) {
+                    val q = value.first()
+                    if ((q == '"' || q == '\'') && value.last() == q) {
+                        value = value.substring(1, value.length - 1)
+                    }
+                }
+                "$name=$value"
             }
         return pairs.takeIf { it.isNotEmpty() }?.joinToString("; ")
     }
